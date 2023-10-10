@@ -1,0 +1,38 @@
+steps:
+- id: 'Ensure TF State bucket'
+  name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+      gsutil ls -b gs://$_GCP_PROJECT_ID-tfstate 2>&1 > /dev/null || gsutil mb -l $_GCP_REGION gs://$_GCP_PROJECT_ID-tfstate
+- id: 'TF init'
+  name: 'hashicorp/terraform:1.5'
+  entrypoint: 'sh'
+  args:
+  - '-c'
+  - |
+      echo "
+      ********* Applying Terraform init *********"
+
+      terraform init --backend-config="bucket=$_GCP_PROJECT_ID-tfstate"
+
+- id: 'TF apply/destroy'
+  name: 'hashicorp/terraform:1.5'
+  entrypoint: 'sh'
+  args:
+  - '-c'
+  - |
+      echo "
+      ********* Applying Terraform $_TF_COMMAND *********"
+
+      terraform $_TF_COMMAND --var-file=terraform.tfvars \
+        --var="gcp_project_id=$_GCP_PROJECT_ID" \
+        --var="zone=$_GCP_ZONE" \
+        --var="gcp_region=$_GCP_REGION" \
+        --auto-approve || exit 1
+
+substitutions:
+  _GCP_REGION: "europe-west1"
+  _GCP_ZONE: "europe-west1-b"
+  _TF_COMMAND: "apply"
